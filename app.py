@@ -12,35 +12,48 @@ def main():
     
     if arquivo:
         dados = processar_arquivo(arquivo)
-        st.write("Estatísticas carregadas:", dados)
+        st.write("Estatísticas processadas:", dados)
         
-        # Cálculo de probabilidades (exemplo com Poisson)
-        if "chutes_no_alvo" in dados:
-            media_gols_por_minuto = dados["chutes_no_alvo"] / 80  # Supondo 80 minutos de jogo
+        # Verifica se há dados suficientes
+        if "Finalizações no alvo_Time A" in dados and "Finalizações no alvo_Time B" in dados:
+            total_chutes_alvo = dados["Finalizações no alvo_Time A"] + dados["Finalizações no alvo_Time B"]
+            media_gols_por_minuto = total_chutes_alvo / 80  # Supondo 80 minutos de jogo
             probabilidades = calcular_probabilidades(media_gols_por_minuto * 10)  # Últimos 10 minutos
             
-            # Output
+            # Exibe resultados
             st.subheader("Probabilidades nos últimos 10 minutos")
             for gols, prob in probabilidades.items():
                 st.write(f"{gols} gol(s): {prob:.1f}%")
             
-            # Resumo interpretativo
-            st.subheader("Análise")
+            # Análise contextual
+            st.subheader("Interpretação")
+            posse_time_a = dados.get("Posse de bola_Time A", 0)
+            posse_time_b = dados.get("Posse de bola_Time B", 0)
             st.write(f"""
-                Com {dados.get('posse_bola', 'N/A')}% de posse de bola e 
-                {dados.get('chutes_no_alvo', 0)} chutes no alvo, a probabilidade de mais gols é:
-                - **Alta** se acima de 50%.
-                - **Média** se entre 20% e 50%.
-                - **Baixa** se abaixo de 20%.
+                - **Posse de bola**: Time A ({posse_time_a}%) vs Time B ({posse_time_b}%).
+                - **Chutes no alvo**: {total_chutes_alvo} (Time A: {dados["Finalizações no alvo_Time A"]} | Time B: {dados["Finalizações no alvo_Time B"]}).
+                - **Probabilidade mais alta**: {max(probabilidades.values()):.1f}% para {max(probabilidades, key=probabilidades.get)} gol(s).
             """)
+        else:
+            st.error("Dados insuficientes para cálculo. Verifique o arquivo.")
 
 def processar_arquivo(arquivo):
     dados = {}
     for linha in arquivo:
         linha_decodificada = linha.decode("utf-8").strip()
-        if ":" in linha_decodificada:
-            chave, valor = linha_decodificada.split(":")
-            dados[chave.strip()] = float(valor.strip())
+        if ":" in linha_decodificada and "===" not in linha_decodificada:
+            # Exemplo: "Posse de bola: Time A 47% | Time B 53%"
+            chave, valores = linha_decodificada.split(":", 1)
+            chave = chave.strip()
+            partes = [v.strip() for v in valores.split("|")]
+            
+            for parte in partes:
+                if "Time A" in parte or "Time B" in parte:
+                    time = "Time A" if "Time A" in parte else "Time B"
+                    valor = parte.replace(time, "").strip()
+                    # Remove % e converte para float
+                    valor = float(valor.replace("%", "")) / 100 if "%" in valor else float(valor)
+                    dados[f"{chave}_{time}"] = valor
     return dados
 
 def calcular_probabilidades(lambda_poisson):
