@@ -40,21 +40,40 @@ def main():
 def processar_arquivo(arquivo):
     dados = {}
     for linha in arquivo:
-        linha_decodificada = linha.decode("utf-8").strip()
-        if ":" in linha_decodificada and "===" not in linha_decodificada:
-            # Exemplo: "Posse de bola: Time A 47% | Time B 53%"
-            chave, valores = linha_decodificada.split(":", 1)
-            chave = chave.strip()
-            partes = [v.strip() for v in valores.split("|")]
+        try:
+            linha_decodificada = linha.decode("utf-8").strip()
+            if ":" in linha_decodificada and "===" not in linha_decodificada:
+                chave, valores = linha_decodificada.split(":", 1)
+                chave = chave.strip()
+                partes = [v.strip() for v in valores.split("|")]
+                
+                for parte in partes:
+                    if "Time A" in parte or "Time B" in parte:
+                        time = "Time A" if "Time A" in parte else "Time B"
+                        valor_texto = parte.replace(time, "").strip()
+                        
+                        # Tratamento robusto do valor
+                        if valor_texto:  # Verifica se não está vazio
+                            # Remove % se existir
+                            if "%" in valor_texto:
+                                valor_texto = valor_texto.replace("%", "")
+                                try:
+                                    valor = float(valor_texto) / 100
+                                except ValueError:
+                                    continue  # Pula valores inválidos
+                            else:
+                                try:
+                                    valor = float(valor_texto)
+                                except ValueError:
+                                    continue  # Pula valores inválidos
+                            
+                            dados[f"{chave}_{time}"] = valor
+        except Exception as e:
+            st.warning(f"Ignorando linha inválida: {linha}. Erro: {str(e)}")
+            continue
             
-            for parte in partes:
-                if "Time A" in parte or "Time B" in parte:
-                    time = "Time A" if "Time A" in parte else "Time B"
-                    valor = parte.replace(time, "").strip()
-                    # Remove % e converte para float
-                    valor = float(valor.replace("%", "")) / 100 if "%" in valor else float(valor)
-                    dados[f"{chave}_{time}"] = valor
     return dados
+Principais Melhoria
 
 def calcular_probabilidades(lambda_poisson):
     return {
