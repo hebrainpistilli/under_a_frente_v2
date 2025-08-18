@@ -46,8 +46,8 @@ def main():
     st.title("⚽ Analisador de Probabilidades de Gols")
     st.markdown("""
     **Como usar**:
-    1. Insira o placar atual
-    2. Faça upload do arquivo de estatísticas
+    1. Insira o placar atual (ex: 2 x 1)
+    2. Faça upload do arquivo de estatísticas (.txt)
     3. Veja as probabilidades ajustadas para os últimos 10 minutos
     """)
 
@@ -114,8 +114,8 @@ def main():
         st.subheader("🔍 Interpretação")
         st.write(f"""
         **Situação atual**:
-        - ⚽ Time A ({gols_time_a} gols): **{situacao['Time A'].upper()}** (fator: {FATORES[situacao['Time A']}x)
-        - ⚽ Time B ({gols_time_b} gols): **{situacao['Time B'].upper()}** (fator: {FATORES[situacao['Time B']}x)
+        - ⚽ Time A ({gols_time_a} gols): **{situacao['Time A'].upper()}** (fator: {FATORES[situacao['Time A']]}x)
+        - ⚽ Time B ({gols_time_b} gols): **{situacao['Time B'].upper()}** (fator: {FATORES[situacao['Time B']]}x)
 
         **Estatísticas-chave**:
         - 🎯 Finalizações no alvo: Time A ({dados['Finalizações no alvo_Time A']}) | Time B ({dados['Finalizações no alvo_Time B']})
