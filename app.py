@@ -187,13 +187,9 @@ O resultado final deve ser um TXT limpo e bem formatado, sem ruídos do OCR, ape
         - 🎯 Finalizações no alvo: Time A ({dados['Finalizações no alvo_Time A']}) | Time B ({dados['Finalizações no alvo_Time B']})
         - 🕒 Média ajustada de gols/10min: **{media_total:.2f}**
         """)
-
-# ... (código existente que calcula as probabilidades)
-
-# ====== ADICIONE AQUI O NOVO CÓDIGO ======
+        
 filtros = calcular_filtros_seguranca(dados, placar)
 
-# Exiba os filtros na seção "Interpretação"
 st.subheader("🔍 Interpretação")
 st.write(f"""
 **Situação atual**:
@@ -209,7 +205,6 @@ st.write(f"""
 - ⏱️ Jogo interrompido (>20 faltas): {"✅" if filtros["tempo_efetivo"] else "❌"}
 - 🎯 Poucas chances claras (<2 no total): {"✅" if filtros["chances_claras"] else "❌"}
 """)
-# ====== FIM DO CÓDIGO NOVO ======
 
 if __name__ == "__main__":
     main()
