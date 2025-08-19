@@ -1,7 +1,6 @@
 import streamlit as st
 import numpy as np
 from scipy.stats import poisson
-from streamlit.components.v1 import html
 
 def safe_convert(value):
     """Converte valores de forma segura (incluindo porcentagens)"""
@@ -43,87 +42,42 @@ def calcular_probabilidades(lambda_poisson):
         for k in range(0, 4)  # 0, 1, 2 ou 3 gols
     }
 
-def copiar_texto():
-    """Função JavaScript para copiar texto"""
-    return """
-    <script>
-    function copiarTexto() {
-        const texto = document.getElementById("texto-modelo").innerText;
-        navigator.clipboard.writeText(texto);
-        const botao = document.getElementById("botao-copiar");
-        botao.innerText = "Copiado!";
-        setTimeout(() => { botao.innerText = "Copiar"; }, 2000);
+def calcular_filtros_seguranca(dados, placar):
+    """Calcula os filtros de segurança para apostas em Under"""
+    try:
+        gols_time_a, gols_time_b = map(int, placar.split("x"))
+    except:
+        return None
+    
+    # Identifica o time perdedor
+    perdedor = "Time A" if gols_time_a < gols_time_b else "Time B"
+    
+    # Filtro 1: Pressão do time perdedor (<2 finalizações no alvo)
+    pressao_perdedor = dados.get(f"Finalizações no alvo_{perdedor}", 0) < 2
+    
+    # Filtro 2: Jogo interrompido (>20 faltas)
+    faltas_total = dados.get("Faltas_Time A", 0) + dados.get("Faltas_Time B", 0)
+    tempo_efetivo = faltas_total > 20
+    
+    # Filtro 3: Poucas chances claras (<2 no total)
+    chances_claras = dados.get("Chances claras_Time A", 0) + dados.get("Chances claras_Time B", 0) < 2
+    
+    return {
+        "pressao_perdedor": pressao_perdedor,
+        "tempo_efetivo": tempo_efetivo,
+        "chances_claras": chances_claras
     }
-    </script>
-    """
 
 def main():
-    st.title("⚽ Analisador de Probabilidades de Gols")
+    st.title("⚽ Analisador de Probabilidades para Under")
     st.markdown("""
     **Como usar**:
-    1. Insira o placar atual (ex: 2 x 1)
+    1. Insira o placar atual (ex: 2 x 0)
     2. Faça upload do arquivo de estatísticas (.txt)
-    3. Veja as probabilidades ajustadas para os últimos 10 minutos
+    3. Veja as probabilidades e filtros para Under
     """)
 
-    # Adicionando o componente de texto copiável
-    st.markdown("""
-    <style>
-    .caixa-texto {
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        padding: 10px;
-        background-color: #f9f9f9;
-        margin-bottom: 10px;
-        font-size: 14px;
-        position: relative;
-    }
-    .botao-copiar {
-        position: absolute;
-        right: 10px;
-        top: 10px;
-        background-color: #f0f2f6;
-        border: 1px solid #ccc;
-        border-radius: 3px;
-        padding: 2px 8px;
-        font-size: 12px;
-        cursor: pointer;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    modelo_texto = """Quero que você extraia as estatísticas deste print e organize em um arquivo de texto no seguinte formato:
-
-=== SEÇÃO ===
-Nome da métrica: Time A valor | Time B valor
-
-Organize por categorias (Destaques, Finalizações, Ataque, Passes, Defesa, Goleiro).
-Sempre escreva os números dos dois times lado a lado, no modelo:
-Métrica: Time A X | Time B Y
-Se houver porcentagens ou frações (ex.: 63/81), mantenha-as.
-
-O resultado final deve ser um TXT limpo e bem formatado, sem ruídos do OCR, apenas com os dados relevantes da imagem."""
-
-    st.markdown("""
-    <div class="caixa-texto">
-        <div id="texto-modelo">Quero que você extraia as estatísticas deste print e organize em um arquivo de texto no seguinte formato:
-
-=== SEÇÃO ===
-Nome da métrica: Time A valor | Time B valor
-
-Organize por categorias (Destaques, Finalizações, Ataque, Passes, Defesa, Goleiro).
-Sempre escreva os números dos dois times lado a lado, no modelo:
-Métrica: Time A X | Time B Y
-Se houver porcentagens ou frações (ex.: 63/81), mantenha-as.
-
-O resultado final deve ser um TXT limpo e bem formatado, sem ruídos do OCR, apenas com os dados relevantes da imagem.</div>
-        <button id="botao-copiar" class="botao-copiar" onclick="copiarTexto()">Copiar</button>
-    </div>
-    """, unsafe_allow_html=True)
-
-    html(copiar_texto())
-
-    # Restante do código (inputs, processamento, etc.)
+    # Inputs do usuário
     col1, col2 = st.columns(2)
     with col1:
         placar = st.text_input("Placar atual (ex: 2 x 1)", "0 x 0")
@@ -146,25 +100,32 @@ O resultado final deve ser um TXT limpo e bem formatado, sem ruídos do OCR, ape
             st.error("❌ Formato de placar inválido! Use '2 x 1'")
             return
 
+        # Verifica dados mínimos necessários
         if not all(k in dados for k in ["Finalizações no alvo_Time A", "Finalizações no alvo_Time B"]):
             st.error("⚠ Arquivo incompleto. Certifique-se de incluir 'Finalizações no alvo' para ambos os times.")
             return
 
+        # Fatores de ajuste baseados no placar
         FATORES = {
-            "ganhando": 0.7,
-            "perdendo": 1.5,
-            "empatando": 1.1
+            "ganhando": 0.7,  # Reduz probabilidade
+            "perdendo": 1.5,   # Aumenta probabilidade
+            "empatando": 1.1    # Pequeno aumento
         }
 
-        media_base_time_a = dados["Finalizações no alvo_Time A"] / 80
+        # Cálculo das médias ajustadas
+        media_base_time_a = dados["Finalizações no alvo_Time A"] / 80  # Média por minuto
         media_base_time_b = dados["Finalizações no alvo_Time B"] / 80
         
         media_ajustada_a = media_base_time_a * FATORES[situacao["Time A"]]
         media_ajustada_b = media_base_time_b * FATORES[situacao["Time B"]]
         
-        media_total = (media_ajustada_a + media_ajustada_b) * 10
+        media_total = (media_ajustada_a + media_ajustada_b) * 10  # Últimos 10 minutos
         probabilidades = calcular_probabilidades(media_total)
 
+        # Calcula filtros de segurança
+        filtros = calcular_filtros_seguranca(dados, placar)
+
+        # Exibição dos resultados
         st.subheader(f"📊 Probabilidades (Placar: {placar})")
         
         col1, col2 = st.columns(2)
@@ -177,6 +138,7 @@ O resultado final deve ser um TXT limpo e bem formatado, sem ruídos do OCR, ape
 
         st.bar_chart(probabilidades)
 
+        # Análise contextual com filtros
         st.subheader("🔍 Interpretação")
         st.write(f"""
         **Situação atual**:
@@ -188,23 +150,21 @@ O resultado final deve ser um TXT limpo e bem formatado, sem ruídos do OCR, ape
         - 🕒 Média ajustada de gols/10min: **{media_total:.2f}**
         """)
         
-filtros = calcular_filtros_seguranca(dados, placar)
-
-st.subheader("🔍 Interpretação")
-st.write(f"""
-**Situação atual**:
-- ⚽ Time A ({gols_time_a} gols): **{situacao['Time A'].upper()}** (fator: {FATORES[situacao['Time A']]}x)
-- ⚽ Time B ({gols_time_b} gols): **{situacao['Time B'].upper()}** (fator: {FATORES[situacao['Time B']]}x)
-
-**Estatísticas-chave**:
-- 🎯 Finalizações no alvo: Time A ({dados['Finalizações no alvo_Time A']}) | Time B ({dados['Finalizações no alvo_Time B']})
-- 🕒 Média ajustada de gols/10min: **{media_total:.2f}**
-
-**Filtros de Segurança** (para Under):
-- 🔒 Time perdedor com pouca pressão (<2 chutes no alvo): {"✅" if filtros["pressao_perdedor"] else "❌"}
-- ⏱️ Jogo interrompido (>20 faltas): {"✅" if filtros["tempo_efetivo"] else "❌"}
-- 🎯 Poucas chances claras (<2 no total): {"✅" if filtros["chances_claras"] else "❌"}
-""")
+        if filtros:
+            st.write("""
+            **Filtros de Segurança (para Under)**:
+            - 🔒 Time perdedor com pouca pressão (<2 chutes no alvo): {"✅" if filtros["pressao_perdedor"] else "❌"}
+            - ⏱️ Jogo interrompido (>20 faltas): {"✅" if filtros["tempo_efetivo"] else "❌"}
+            - 🎯 Poucas chances claras (<2 no total): {"✅" if filtros["chances_claras"] else "❌"}
+            """)
+        
+        # Recomendação baseada nos filtros
+        if filtros and all(filtros.values()):
+            st.success("✅ CONDIÇÕES IDEAIS PARA UNDER - Todos os filtros atendidos!")
+        elif filtros and any(filtros.values()):
+            st.warning("⚠ CONDIÇÕES PARCIAIS - Avalie com cautela")
+        else:
+            st.error("❌ RISCO ALTO - Filtros não atendidos")
 
 if __name__ == "__main__":
     main()
