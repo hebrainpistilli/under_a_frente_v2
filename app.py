@@ -188,5 +188,28 @@ O resultado final deve ser um TXT limpo e bem formatado, sem ruídos do OCR, ape
         - 🕒 Média ajustada de gols/10min: **{media_total:.2f}**
         """)
 
+# ... (código existente que calcula as probabilidades)
+
+# ====== ADICIONE AQUI O NOVO CÓDIGO ======
+filtros = calcular_filtros_seguranca(dados, placar)
+
+# Exiba os filtros na seção "Interpretação"
+st.subheader("🔍 Interpretação")
+st.write(f"""
+**Situação atual**:
+- ⚽ Time A ({gols_time_a} gols): **{situacao['Time A'].upper()}** (fator: {FATORES[situacao['Time A']]}x)
+- ⚽ Time B ({gols_time_b} gols): **{situacao['Time B'].upper()}** (fator: {FATORES[situacao['Time B']]}x)
+
+**Estatísticas-chave**:
+- 🎯 Finalizações no alvo: Time A ({dados['Finalizações no alvo_Time A']}) | Time B ({dados['Finalizações no alvo_Time B']})
+- 🕒 Média ajustada de gols/10min: **{media_total:.2f}**
+
+**Filtros de Segurança** (para Under):
+- 🔒 Time perdedor com pouca pressão (<2 chutes no alvo): {"✅" if filtros["pressao_perdedor"] else "❌"}
+- ⏱️ Jogo interrompido (>20 faltas): {"✅" if filtros["tempo_efetivo"] else "❌"}
+- 🎯 Poucas chances claras (<2 no total): {"✅" if filtros["chances_claras"] else "❌"}
+""")
+# ====== FIM DO CÓDIGO NOVO ======
+
 if __name__ == "__main__":
     main()
